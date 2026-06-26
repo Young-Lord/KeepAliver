@@ -18,7 +18,8 @@ data class AppSettings(
     val tileTriggerEnabled: Boolean = true,
     val syncTriggerEnabled: Boolean = true,
     val executionMode: String = "NORMAL",
-    val syncIntervalMinutes: Int = 60
+    val syncIntervalMinutes: Int = 60,
+    val loggingEnabled: Boolean = false
 )
 
 class SettingsStore(private val context: Context) {
@@ -29,6 +30,7 @@ class SettingsStore(private val context: Context) {
         val SYNC_TRIGGER = booleanPreferencesKey("sync_trigger_enabled")
         val EXECUTION_MODE = stringPreferencesKey("execution_mode")
         val SYNC_INTERVAL = intPreferencesKey("sync_interval_minutes")
+        val LOGGING_ENABLED = booleanPreferencesKey("logging_enabled")
     }
 
     val settingsFlow: Flow<AppSettings> = context.dataStore.data.map { prefs ->
@@ -37,7 +39,8 @@ class SettingsStore(private val context: Context) {
             tileTriggerEnabled = prefs[Keys.TILE_TRIGGER] ?: true,
             syncTriggerEnabled = prefs[Keys.SYNC_TRIGGER] ?: true,
             executionMode = prefs[Keys.EXECUTION_MODE] ?: "NORMAL",
-            syncIntervalMinutes = prefs[Keys.SYNC_INTERVAL] ?: 60
+            syncIntervalMinutes = prefs[Keys.SYNC_INTERVAL] ?: 60,
+            loggingEnabled = prefs[Keys.LOGGING_ENABLED] ?: false
         )
     }
 
@@ -68,6 +71,12 @@ class SettingsStore(private val context: Context) {
     suspend fun setSyncIntervalMinutes(minutes: Int) {
         context.dataStore.edit { prefs ->
             prefs[Keys.SYNC_INTERVAL] = minutes
+        }
+    }
+
+    suspend fun setLoggingEnabled(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.LOGGING_ENABLED] = enabled
         }
     }
 }

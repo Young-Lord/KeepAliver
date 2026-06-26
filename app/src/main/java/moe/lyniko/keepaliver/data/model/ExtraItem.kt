@@ -13,5 +13,6 @@ enum class ExtraType {
     FLOAT,
     DOUBLE,
     BOOLEAN,
-    URI
+    URI,
+    STRING_ARRAY
 }

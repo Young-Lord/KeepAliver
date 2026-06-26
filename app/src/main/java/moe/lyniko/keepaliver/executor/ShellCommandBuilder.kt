@@ -66,6 +66,8 @@ object ShellCommandBuilder {
                     sb.append(" --ez ").append(escapeShell(item.key)).append(" ").append(escapeShell(item.value))
                 moe.lyniko.keepaliver.data.model.ExtraType.URI ->
                     sb.append(" --eu ").append(escapeShell(item.key)).append(" ").append(escapeShell(item.value))
+                moe.lyniko.keepaliver.data.model.ExtraType.STRING_ARRAY ->
+                    sb.append(" --esa ").append(escapeShell(item.key)).append(" ").append(escapeShell(item.value))
             }
         }
 

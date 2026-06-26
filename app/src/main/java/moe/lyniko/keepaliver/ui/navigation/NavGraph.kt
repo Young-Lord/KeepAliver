@@ -1,5 +1,7 @@
 package moe.lyniko.keepaliver.ui.navigation
 
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
@@ -23,7 +25,14 @@ import moe.lyniko.keepaliver.ui.settings.SettingsViewModel
 fun NavGraph(navController: NavHostController) {
     val app = LocalContext.current.applicationContext as KeepAliverApp
 
-    NavHost(navController = navController, startDestination = Screen.Main.route) {
+    NavHost(
+        navController = navController,
+        startDestination = Screen.Main.route,
+        enterTransition = { EnterTransition.None },
+        exitTransition = { ExitTransition.None },
+        popEnterTransition = { EnterTransition.None },
+        popExitTransition = { ExitTransition.None }
+    ) {
         composable(Screen.Main.route) {
             val viewModel: MainViewModel = viewModel(
                 factory = MainViewModel.Factory(app.repository)

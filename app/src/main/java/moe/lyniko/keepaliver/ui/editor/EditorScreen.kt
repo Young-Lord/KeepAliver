@@ -1,20 +1,27 @@
 package moe.lyniko.keepaliver.ui.editor
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
@@ -30,6 +37,8 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.InputChip
+import androidx.compose.material3.InputChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -52,6 +61,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import moe.lyniko.keepaliver.ui.components.DelayedLoadingBox
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import moe.lyniko.keepaliver.data.model.ExtraItem
@@ -102,6 +113,10 @@ fun EditorScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
+        if (state.isLoading) {
+            DelayedLoadingBox(modifier = Modifier.padding(padding))
+            return@Scaffold
+        }
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -330,7 +345,12 @@ private fun ExtraItemRow(
                             DropdownMenuItem(
                                 text = { Text(type.name) },
                                 onClick = {
-                                    onUpdate(extra.copy(type = type))
+                                    val normalizedValue = if (type == ExtraType.BOOLEAN) {
+                                        (extra.value.toBooleanStrictOrNull() ?: false).toString()
+                                    } else {
+                                        extra.value
+                                    }
+                                    onUpdate(extra.copy(type = type, value = normalizedValue))
                                     expanded = false
                                 }
                             )
@@ -361,13 +381,127 @@ private fun ExtraItemRow(
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            OutlinedTextField(
-                value = extra.value,
-                onValueChange = { onUpdate(extra.copy(value = it)) },
-                label = { Text("Value") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
+            when (extra.type) {
+                ExtraType.BOOLEAN -> {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Value", modifier = Modifier.weight(1f))
+                        val checked = extra.value.toBooleanStrictOrNull() ?: false
+                        Switch(
+                            checked = checked,
+                            onCheckedChange = { onUpdate(extra.copy(value = it.toString())) }
+                        )
+                    }
+                }
+                ExtraType.STRING_ARRAY -> {
+                    StringArrayValueInput(
+                        value = extra.value,
+                        onValueChange = { onUpdate(extra.copy(value = it)) }
+                    )
+                }
+                else -> {
+                    OutlinedTextField(
+                        value = extra.value,
+                        onValueChange = { onUpdate(extra.copy(value = it)) },
+                        label = { Text("Value") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
         }
     }
 }
+
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+@Composable
+private fun StringArrayValueInput(
+    value: String,
+    onValueChange: (String) -> Unit
+) {
+    val items = remember(value) { decodeStringArray(value) }
+    var input by remember { mutableStateOf("") }
+
+    fun addItem() {
+        val trimmed = input.trim()
+        if (trimmed.isEmpty()) return
+        onValueChange(encodeStringArray(items + trimmed))
+        input = ""
+    }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        if (items.isNotEmpty()) {
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items.forEachIndexed { index, item ->
+                    InputChip(
+                        selected = false,
+                        onClick = {},
+                        label = { Text(item) },
+                        trailingIcon = {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Remove",
+                                modifier = Modifier
+                                    .size(InputChipDefaults.IconSize)
+                                    .clickable {
+                                        onValueChange(
+                                            encodeStringArray(
+                                                items.filterIndexed { i, _ -> i != index }
+                                            )
+                                        )
+                                    }
+                            )
+                        }
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+        }
+
+        OutlinedTextField(
+            value = input,
+            onValueChange = { input = it },
+            label = { Text("Add value") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { addItem() }),
+            trailingIcon = {
+                IconButton(onClick = { addItem() }, enabled = input.isNotBlank()) {
+                    Icon(Icons.Default.Add, contentDescription = "Add value")
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+private fun decodeStringArray(value: String): List<String> {
+    if (value.isEmpty()) return emptyList()
+    val result = mutableListOf<String>()
+    val current = StringBuilder()
+    var i = 0
+    while (i < value.length) {
+        val c = value[i]
+        if (c == '\\' && i + 1 < value.length && value[i + 1] == ',') {
+            current.append(',')
+            i += 2
+        } else if (c == ',') {
+            result.add(current.toString())
+            current.setLength(0)
+            i++
+        } else {
+            current.append(c)
+            i++
+        }
+    }
+    result.add(current.toString())
+    return result
+}
+
+private fun encodeStringArray(items: List<String>): String =
+    items.joinToString(",") { it.replace(",", "\\,") }

@@ -1,10 +1,13 @@
 package moe.lyniko.keepaliver.ui.applist
 
-import android.content.pm.ApplicationInfo
+import android.content.Context
 import android.content.pm.PackageManager
-import android.graphics.drawable.Drawable
+import android.util.LruCache
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -35,18 +38,45 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.graphics.drawable.toBitmap
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 data class AppItem(
     val packageName: String,
-    val appName: String,
-    val icon: Drawable?
+    val appName: String
 )
+
+/** 进程级缓存：避免每次进入页面都重新拉取并排序整个应用列表。 */
+private object AppListCache {
+    @Volatile
+    var apps: List<AppItem>? = null
+}
+
+/** 图标缓存 + 后台解码：按需懒加载，避免一次性解码全部应用图标阻塞主线程。 */
+private object AppIconCache {
+    private const val ICON_PX = 96
+    private val cache = LruCache<String, ImageBitmap>(256)
+
+    fun peek(packageName: String): ImageBitmap? = cache.get(packageName)
+
+    suspend fun load(context: Context, packageName: String): ImageBitmap? {
+        cache.get(packageName)?.let { return it }
+        return withContext(Dispatchers.IO) {
+            runCatching {
+                val drawable = context.packageManager.getApplicationIcon(packageName)
+                drawable.toBitmap(ICON_PX, ICON_PX).asImageBitmap()
+            }.getOrNull()?.also { cache.put(packageName, it) }
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,17 +85,22 @@ fun AppListScreen(
     onAppPicked: (packageName: String) -> Unit
 ) {
     val context = LocalContext.current
-    val apps by produceState<List<AppItem>>(initialValue = emptyList()) {
-        val pm = context.packageManager
-        value = pm.getInstalledApplications(PackageManager.ApplicationInfoFlags.of(0))
-            .sortedBy { pm.getApplicationLabel(it).toString() }
-            .map { info ->
-                AppItem(
-                    packageName = info.packageName,
-                    appName = pm.getApplicationLabel(info).toString(),
-                    icon = info.loadIcon(pm)
-                )
+    val apps by produceState(initialValue = AppListCache.apps ?: emptyList()) {
+        if (value.isEmpty()) {
+            val loaded = withContext(Dispatchers.Default) {
+                val pm = context.packageManager
+                pm.getInstalledApplications(PackageManager.ApplicationInfoFlags.of(0))
+                    .map { info ->
+                        AppItem(
+                            packageName = info.packageName,
+                            appName = pm.getApplicationLabel(info).toString()
+                        )
+                    }
+                    .sortedBy { it.appName.lowercase() }
             }
+            AppListCache.apps = loaded
+            value = loaded
+        }
     }
 
     var searchQuery by remember { mutableStateOf("") }
@@ -144,35 +179,12 @@ private fun AppItemRow(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        val iconModifier = Modifier
-            .size(40.dp)
-            .clip(MaterialTheme.shapes.medium)
-
-        if (app.icon != null) {
-            val iconBitmap = rememberDrawableBitmap(app.icon)
-            if (iconBitmap != null) {
-                androidx.compose.foundation.Image(
-                    painter = BitmapPainter(iconBitmap.asImageBitmap()),
-                    contentDescription = null,
-                    modifier = iconModifier,
-                    contentScale = ContentScale.Fit
-                )
-            } else {
-                Icon(
-                    Icons.Default.Search,
-                    contentDescription = null,
-                    modifier = iconModifier,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        } else {
-            Icon(
-                Icons.Default.Search,
-                contentDescription = null,
-                modifier = iconModifier,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
+        AppIcon(
+            packageName = app.packageName,
+            modifier = Modifier
+                .size(40.dp)
+                .clip(MaterialTheme.shapes.medium)
+        )
 
         Column(
             modifier = Modifier
@@ -197,19 +209,29 @@ private fun AppItemRow(
 }
 
 @Composable
-private fun rememberDrawableBitmap(drawable: Drawable): android.graphics.Bitmap? {
-    return remember(drawable) {
-        when (drawable) {
-            is android.graphics.drawable.BitmapDrawable -> drawable.bitmap
-            else -> {
-                val w = drawable.intrinsicWidth.coerceAtLeast(1)
-                val h = drawable.intrinsicHeight.coerceAtLeast(1)
-                val bitmap = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
-                val canvas = android.graphics.Canvas(bitmap)
-                drawable.setBounds(0, 0, canvas.width, canvas.height)
-                drawable.draw(canvas)
-                bitmap
-            }
+private fun AppIcon(
+    packageName: String,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val icon by produceState(initialValue = AppIconCache.peek(packageName), packageName) {
+        if (value == null) {
+            value = AppIconCache.load(context, packageName)
         }
+    }
+
+    val current = icon
+    if (current != null) {
+        Image(
+            painter = BitmapPainter(current),
+            contentDescription = null,
+            modifier = modifier,
+            contentScale = ContentScale.Fit
+        )
+    } else {
+        // 占位，避免图标加载完成前列表行高度跳动。
+        Box(
+            modifier = modifier.background(MaterialTheme.colorScheme.surfaceVariant)
+        )
     }
 }

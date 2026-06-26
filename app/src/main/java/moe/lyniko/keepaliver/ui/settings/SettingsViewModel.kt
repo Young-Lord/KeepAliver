@@ -16,8 +16,8 @@ class SettingsViewModel(
     private val settingsStore: SettingsStore
 ) : ViewModel() {
 
-    val settings: StateFlow<AppSettings> = settingsStore.settingsFlow
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AppSettings())
+    val settings: StateFlow<AppSettings?> = settingsStore.settingsFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     val shizukuState: ShizukuHelper.PermissionState
         get() = ShizukuHelper.checkPermission()
@@ -40,6 +40,10 @@ class SettingsViewModel(
 
     fun setSyncInterval(minutes: Int) {
         viewModelScope.launch { settingsStore.setSyncIntervalMinutes(minutes) }
+    }
+
+    fun setLoggingEnabled(enabled: Boolean) {
+        viewModelScope.launch { settingsStore.setLoggingEnabled(enabled) }
     }
 
     fun requestShizukuPermission() {

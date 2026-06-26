@@ -1,6 +1,12 @@
 package moe.lyniko.keepaliver.ui.settings
 
+import android.app.StatusBarManager
+import android.content.ComponentName
+import android.graphics.drawable.Icon
+import android.os.Build
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -25,6 +31,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -38,8 +45,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import moe.lyniko.keepaliver.R
+import moe.lyniko.keepaliver.ui.components.DelayedLoadingBox
 import moe.lyniko.keepaliver.data.model.ExecutionMode
+import moe.lyniko.keepaliver.service.KeepAliveTileService
 import moe.lyniko.keepaliver.shizuku.ShizukuHelper
 
 data class SyncIntervalOption(val label: String, val minutes: Int)
@@ -60,6 +71,7 @@ fun SettingsScreen(
     onNavigateBack: () -> Unit
 ) {
     val settings by viewModel.settings.collectAsState()
+    val context = LocalContext.current
 
     Scaffold(
         topBar = {
@@ -77,6 +89,11 @@ fun SettingsScreen(
             )
         }
     ) { padding ->
+        val currentSettings = settings
+        if (currentSettings == null) {
+            DelayedLoadingBox(modifier = Modifier.padding(padding))
+            return@Scaffold
+        }
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -90,26 +107,54 @@ fun SettingsScreen(
             SettingsToggle(
                 title = "Boot Completed",
                 description = "Fire intents when device boots",
-                checked = settings.bootTriggerEnabled,
+                checked = currentSettings.bootTriggerEnabled,
                 onCheckedChange = viewModel::setBootTriggerEnabled
             )
             SettingsToggle(
                 title = "Quick Settings Tile",
                 description = "Fire intents when QS tile becomes visible",
-                checked = settings.tileTriggerEnabled,
+                checked = currentSettings.tileTriggerEnabled,
                 onCheckedChange = viewModel::setTileTriggerEnabled
             )
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                OutlinedButton(
+                    onClick = {
+                        val statusBarManager =
+                            context.getSystemService(StatusBarManager::class.java)
+                        statusBarManager?.requestAddTileService(
+                            ComponentName(context, KeepAliveTileService::class.java),
+                            context.getString(R.string.app_name),
+                            Icon.createWithResource(context, R.drawable.ic_qs_keepalive),
+                            context.mainExecutor
+                        ) { result ->
+                            val message = when (result) {
+                                StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED ->
+                                    "Tile added to Quick Settings"
+                                StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED ->
+                                    "Tile already added"
+                                else -> null
+                            }
+                            message?.let {
+                                Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Add Tile to Quick Settings")
+                }
+            }
             SettingsToggle(
                 title = "Account Sync",
                 description = "Fire intents on periodic account sync",
-                checked = settings.syncTriggerEnabled,
+                checked = currentSettings.syncTriggerEnabled,
                 onCheckedChange = viewModel::setSyncTriggerEnabled
             )
 
             // Sync Interval (only shown when sync trigger enabled)
-            if (settings.syncTriggerEnabled) {
+            if (currentSettings.syncTriggerEnabled) {
                 SyncIntervalPicker(
-                    currentMinutes = settings.syncIntervalMinutes,
+                    currentMinutes = currentSettings.syncIntervalMinutes,
                     onIntervalSelected = viewModel::setSyncInterval
                 )
             }
@@ -121,7 +166,7 @@ fun SettingsScreen(
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 ExecutionMode.entries.forEachIndexed { index, mode ->
                     SegmentedButton(
-                        selected = settings.executionMode == mode.name,
+                        selected = currentSettings.executionMode == mode.name,
                         onClick = { viewModel.setExecutionMode(mode) },
                         shape = SegmentedButtonDefaults.itemShape(index, ExecutionMode.entries.size)
                     ) {
@@ -175,6 +220,17 @@ fun SettingsScreen(
                     }
                 }
             }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Debug section
+            Text("Debug", style = MaterialTheme.typography.titleMedium)
+            SettingsToggle(
+                title = "Verbose Logging",
+                description = "Log intent content and results to logcat (tag: IntentExecutor)",
+                checked = currentSettings.loggingEnabled,
+                onCheckedChange = viewModel::setLoggingEnabled
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
         }

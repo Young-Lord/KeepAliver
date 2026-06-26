@@ -33,6 +33,7 @@ data class EditorUiState(
     val nameError: Boolean = false,
     val packageError: Boolean = false,
     val isSaved: Boolean = false,
+    val isLoading: Boolean = false,
     val testing: Boolean = false,
     val testMessage: String? = null
 )
@@ -44,7 +45,7 @@ class EditorViewModel(
     private val entryId: Long
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(EditorUiState())
+    private val _uiState = MutableStateFlow(EditorUiState(isLoading = entryId != -1L))
     val uiState: StateFlow<EditorUiState> = _uiState.asStateFlow()
 
     init {
@@ -55,7 +56,11 @@ class EditorViewModel(
 
     private fun loadEntry(id: Long) {
         viewModelScope.launch {
-            val entry = repository.getEntryById(id) ?: return@launch
+            val entry = repository.getEntryById(id)
+            if (entry == null) {
+                _uiState.value = _uiState.value.copy(isLoading = false)
+                return@launch
+            }
             _uiState.value = EditorUiState(
                 name = entry.name,
                 intentType = entry.intentType,
@@ -66,7 +71,8 @@ class EditorViewModel(
                 category = entry.category ?: "",
                 flags = entry.flags?.toString() ?: "",
                 extras = IntentExtrasParser.parse(entry.extrasJson),
-                useForegroundService = entry.useForegroundService
+                useForegroundService = entry.useForegroundService,
+                isLoading = false
             )
         }
     }
@@ -180,11 +186,7 @@ class EditorViewModel(
                 result.onFailure { failure = it }
             }
             val err = failure
-            val message = if (err == null) {
-                "Test fired (${mode.name})"
-            } else {
-                "Test failed: ${err.message ?: err.javaClass.simpleName}"
-            }
+            val message = err?.let { "Test failed: ${it.message ?: it.javaClass.simpleName}" }
             _uiState.value = _uiState.value.copy(testing = false, testMessage = message)
         }
     }
