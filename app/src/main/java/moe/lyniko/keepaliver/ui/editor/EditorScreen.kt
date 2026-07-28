@@ -258,25 +258,14 @@ fun EditorScreen(
             // Execution Mode
             Spacer(modifier = Modifier.height(8.dp))
             Text("Execution Mode", style = MaterialTheme.typography.labelLarge)
-            Text(
-                text = "Leave as \"Default (NORMAL)\" to use normal execution without special permissions.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                // Include a "Default" option (null) plus all explicit modes
-                val modes = listOf<ExecutionMode?>(null) + ExecutionMode.entries
-                modes.forEachIndexed { index, mode ->
-                    val label = when (mode) {
-                        null -> "Default"
-                        else -> mode.name
-                    }
+                ExecutionMode.entries.forEachIndexed { index, mode ->
                     SegmentedButton(
                         selected = state.executionMode == mode,
                         onClick = { viewModel.updateExecutionMode(mode) },
-                        shape = SegmentedButtonDefaults.itemShape(index, modes.size)
+                        shape = SegmentedButtonDefaults.itemShape(index, ExecutionMode.entries.size)
                     ) {
-                        Text(label)
+                        Text(mode.name)
                     }
                 }
             }

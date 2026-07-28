@@ -29,7 +29,7 @@ data class EditorUiState(
     val flags: String = "",
     val extras: List<ExtraItem> = emptyList(),
     val useForegroundService: Boolean = false,
-    val executionMode: ExecutionMode? = null,
+    val executionMode: ExecutionMode? = ExecutionMode.NORMAL,
     val nameError: Boolean = false,
     val packageError: Boolean = false,
     val isSaved: Boolean = false,
