@@ -24,25 +24,26 @@ object IntentExecutor {
     suspend fun executeAll(
         context: Context,
         entries: List<IntentEntry>,
-        mode: ExecutionMode,
         onEntryExecuted: ((IntentEntry, Result<Unit>) -> Unit)? = null
     ) {
         loggingEnabled = runCatching {
             SettingsStore(context.applicationContext).settingsFlow.first().loggingEnabled
         }.getOrDefault(false)
 
-        logI { "executeAll: count=${entries.size}, mode=$mode" }
+        logI { "executeAll: count=${entries.size}" }
         entries.forEach { entry ->
-            val result = executeSingle(context, entry, mode)
+            val result = executeSingle(context, entry)
             onEntryExecuted?.invoke(entry, result)
         }
     }
 
     private suspend fun executeSingle(
         context: Context,
-        entry: IntentEntry,
-        mode: ExecutionMode
+        entry: IntentEntry
     ): Result<Unit> {
+        // Use per-task execution mode if set, otherwise default to NORMAL
+        val mode = entry.executionMode ?: ExecutionMode.NORMAL
+
         logI { "executeSingle start: mode=$mode, entry=${describeEntry(entry)}" }
         val result = runCatching {
             when (mode) {
@@ -83,6 +84,7 @@ object IntentExecutor {
         append(", category=").append(entry.category)
         append(", flags=").append(entry.flags)
         append(", fgService=").append(entry.useForegroundService)
+        append(", mode=").append(entry.executionMode)
         append(", extras=").append(entry.extrasJson)
     }
 

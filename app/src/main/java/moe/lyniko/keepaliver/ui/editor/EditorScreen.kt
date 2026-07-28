@@ -65,6 +65,7 @@ import moe.lyniko.keepaliver.ui.components.DelayedLoadingBox
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import moe.lyniko.keepaliver.data.model.ExecutionMode
 import moe.lyniko.keepaliver.data.model.ExtraItem
 import moe.lyniko.keepaliver.data.model.ExtraType
 import moe.lyniko.keepaliver.data.model.IntentType
@@ -251,6 +252,32 @@ fun EditorScreen(
                         checked = state.useForegroundService,
                         onCheckedChange = viewModel::updateUseForegroundService
                     )
+                }
+            }
+
+            // Execution Mode
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("Execution Mode", style = MaterialTheme.typography.labelLarge)
+            Text(
+                text = "Leave as \"Default (NORMAL)\" to use normal execution without special permissions.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                // Include a "Default" option (null) plus all explicit modes
+                val modes = listOf<ExecutionMode?>(null) + ExecutionMode.entries
+                modes.forEachIndexed { index, mode ->
+                    val label = when (mode) {
+                        null -> "Default"
+                        else -> mode.name
+                    }
+                    SegmentedButton(
+                        selected = state.executionMode == mode,
+                        onClick = { viewModel.updateExecutionMode(mode) },
+                        shape = SegmentedButtonDefaults.itemShape(index, modes.size)
+                    ) {
+                        Text(label)
+                    }
                 }
             }
 

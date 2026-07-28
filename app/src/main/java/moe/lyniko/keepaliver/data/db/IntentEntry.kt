@@ -2,6 +2,7 @@ package moe.lyniko.keepaliver.data.db
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import moe.lyniko.keepaliver.data.model.ExecutionMode
 import moe.lyniko.keepaliver.data.model.IntentType
 
 @Entity(tableName = "intent_entries")
@@ -18,5 +19,6 @@ data class IntentEntry(
     val category: String? = null,
     val flags: Int? = null,
     val extrasJson: String? = null,
-    val useForegroundService: Boolean = false
+    val useForegroundService: Boolean = false,
+    val executionMode: ExecutionMode? = null
 )

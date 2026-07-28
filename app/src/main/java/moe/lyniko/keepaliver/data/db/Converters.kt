@@ -1,6 +1,7 @@
 package moe.lyniko.keepaliver.data.db
 
 import androidx.room.TypeConverter
+import moe.lyniko.keepaliver.data.model.ExecutionMode
 import moe.lyniko.keepaliver.data.model.ExtraItem
 import moe.lyniko.keepaliver.data.model.ExtraType
 import moe.lyniko.keepaliver.data.model.IntentType
@@ -14,6 +15,16 @@ class Converters {
 
     @TypeConverter
     fun stringToIntentType(value: String): IntentType = IntentType.valueOf(value)
+
+    @TypeConverter
+    fun executionModeToString(value: ExecutionMode?): String? {
+        return value?.name
+    }
+
+    @TypeConverter
+    fun stringToExecutionMode(value: String?): ExecutionMode? {
+        return value?.let { runCatching { ExecutionMode.valueOf(it) }.getOrNull() }
+    }
 
     @TypeConverter
     fun extraListToJson(value: List<ExtraItem>?): String? {

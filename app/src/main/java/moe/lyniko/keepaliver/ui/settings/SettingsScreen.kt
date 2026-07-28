@@ -26,12 +26,9 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -49,7 +46,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import moe.lyniko.keepaliver.R
 import moe.lyniko.keepaliver.ui.components.DelayedLoadingBox
-import moe.lyniko.keepaliver.data.model.ExecutionMode
 import moe.lyniko.keepaliver.service.KeepAliveTileService
 import moe.lyniko.keepaliver.shizuku.ShizukuHelper
 
@@ -161,24 +157,8 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Execution Mode section
-            Text("Execution Mode", style = MaterialTheme.typography.titleMedium)
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                ExecutionMode.entries.forEachIndexed { index, mode ->
-                    SegmentedButton(
-                        selected = currentSettings.executionMode == mode.name,
-                        onClick = { viewModel.setExecutionMode(mode) },
-                        shape = SegmentedButtonDefaults.itemShape(index, ExecutionMode.entries.size)
-                    ) {
-                        Text(mode.name)
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Shizuku Status section
-            Text("Shizuku", style = MaterialTheme.typography.titleMedium)
+            // Shizuku authorization section
+            Text("Shizuku Authorization", style = MaterialTheme.typography.titleMedium)
 
             val shizukuState = viewModel.shizukuState
             val statusText = when (shizukuState) {

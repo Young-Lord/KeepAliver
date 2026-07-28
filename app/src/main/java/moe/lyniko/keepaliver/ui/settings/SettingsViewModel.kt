@@ -9,7 +9,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import moe.lyniko.keepaliver.data.AppSettings
 import moe.lyniko.keepaliver.data.SettingsStore
-import moe.lyniko.keepaliver.data.model.ExecutionMode
 import moe.lyniko.keepaliver.shizuku.ShizukuHelper
 
 class SettingsViewModel(
@@ -32,10 +31,6 @@ class SettingsViewModel(
 
     fun setSyncTriggerEnabled(enabled: Boolean) {
         viewModelScope.launch { settingsStore.setSyncTriggerEnabled(enabled) }
-    }
-
-    fun setExecutionMode(mode: ExecutionMode) {
-        viewModelScope.launch { settingsStore.setExecutionMode(mode.name) }
     }
 
     fun setSyncInterval(minutes: Int) {

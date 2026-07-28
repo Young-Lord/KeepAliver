@@ -7,7 +7,6 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import moe.lyniko.keepaliver.data.SettingsStore
 import moe.lyniko.keepaliver.data.db.IntentEntry
@@ -30,6 +29,7 @@ data class EditorUiState(
     val flags: String = "",
     val extras: List<ExtraItem> = emptyList(),
     val useForegroundService: Boolean = false,
+    val executionMode: ExecutionMode? = null,
     val nameError: Boolean = false,
     val packageError: Boolean = false,
     val isSaved: Boolean = false,
@@ -72,6 +72,7 @@ class EditorViewModel(
                 flags = entry.flags?.toString() ?: "",
                 extras = IntentExtrasParser.parse(entry.extrasJson),
                 useForegroundService = entry.useForegroundService,
+                executionMode = entry.executionMode,
                 isLoading = false
             )
         }
@@ -86,6 +87,7 @@ class EditorViewModel(
     fun updateCategory(category: String) { _uiState.value = _uiState.value.copy(category = category) }
     fun updateFlags(flags: String) { _uiState.value = _uiState.value.copy(flags = flags) }
     fun updateUseForegroundService(value: Boolean) { _uiState.value = _uiState.value.copy(useForegroundService = value) }
+    fun updateExecutionMode(mode: ExecutionMode?) { _uiState.value = _uiState.value.copy(executionMode = mode) }
 
     fun addExtra() {
         val extras = _uiState.value.extras + ExtraItem("", "", ExtraType.STRING)
@@ -136,6 +138,7 @@ class EditorViewModel(
                 flags = state.flags.trim().toIntOrNull(),
                 extrasJson = IntentExtrasParser.toJson(state.extras),
                 useForegroundService = state.useForegroundService,
+                executionMode = state.executionMode,
                 enabled = true
             )
 
@@ -160,6 +163,9 @@ class EditorViewModel(
             return
         }
 
+        // Use the per-task execution mode if set, otherwise default to NORMAL
+        val mode = state.executionMode ?: ExecutionMode.NORMAL
+
         val entry = IntentEntry(
             id = 0,
             name = state.name.trim().ifBlank { "Test" },
@@ -172,17 +178,14 @@ class EditorViewModel(
             flags = state.flags.trim().toIntOrNull(),
             extrasJson = IntentExtrasParser.toJson(state.extras),
             useForegroundService = state.useForegroundService,
+            executionMode = mode,
             enabled = true
         )
 
         _uiState.value = state.copy(testing = true, testMessage = null)
         viewModelScope.launch {
-            val mode = runCatching {
-                ExecutionMode.valueOf(settingsStore.settingsFlow.first().executionMode)
-            }.getOrDefault(ExecutionMode.NORMAL)
-
             var failure: Throwable? = null
-            IntentExecutor.executeAll(application, listOf(entry), mode) { _, result ->
+            IntentExecutor.executeAll(application, listOf(entry)) { _, result ->
                 result.onFailure { failure = it }
             }
             val err = failure
